@@ -367,7 +367,7 @@ export class HttpConnector {
         this._onRequest && this._onRequest(config)
 
         if (query) {
-            url = `${url}${(url.split('?').length == 1 ? '?' : '&')}${config.query}`
+            url = `${url}${(url.split('?').length == 1 ? '?' : '&')}${query}`
             delete (config.query)
         }
 
