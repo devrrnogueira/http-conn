@@ -174,7 +174,7 @@ export class HttpConnector {
      *      mode?: ('cors'|'no-cors'|'same-origin'),
      *      timeout?: Number,
      *      cache?: Number,
-     *      query?: String
+     *      query?: String|Object
      * }} options?
      * @param {Boolean} cancelable?
     */
@@ -190,7 +190,7 @@ export class HttpConnector {
      *      mode?: ('cors'|'no-cors'|'same-origin'),
      *      timeout?: Number,
      *      cache?: Number,
-     *      query?: String 
+     *      query?: String|Object 
      * }} options?
      * @param {Boolean} cancelable?
     */
@@ -206,7 +206,7 @@ export class HttpConnector {
      *      mode?: ('cors'|'no-cors'|'same-origin'),
      *      timeout?: Number,
      *      cache?: Number,
-     *      query?: String 
+     *      query?: String|Object 
      * }} options?
      * @param {Boolean} cancelable?
     */
@@ -221,7 +221,7 @@ export class HttpConnector {
      *      mode?: ('cors'|'no-cors'|'same-origin'),
      *      timeout?: Number,
      *      cache?: Number,
-     *      query?: String
+     *      query?: String|Object
      * }} options?
      * @param {Boolean} cancelable?
     */
@@ -236,7 +236,7 @@ export class HttpConnector {
      *      mode?: ('cors'|'no-cors'|'same-origin'),
      *      timeout?: Number,
      *      cache?: Number,
-     *      query?: String 
+     *      query?: String|Object 
      * }} options?
      * @param {Boolean} cancelable?
     */
@@ -251,7 +251,7 @@ export class HttpConnector {
      *      mode?: ('cors'|'no-cors'|'same-origin'),
      *      timeout?: Number,
      *      cache?: Number,
-     *      query?: String 
+     *      query?: String|Object 
      * }} options?
      * @param {Boolean} cancelable?
     */
@@ -266,7 +266,7 @@ export class HttpConnector {
      *      mode?: ('cors'|'no-cors'|'same-origin'),
      *      timeout?: Number,
      *      cache?: Number,
-     *      query?: String 
+     *      query?: String|Object 
      * }} options?
      * @param {Boolean} cancelable?
     */
@@ -283,7 +283,7 @@ export class HttpConnector {
      *      mode?: ('cors'|'no-cors'|'same-origin'),
      *      timeout?: Number,
      *      cache?: Number,
-     *      query?: String,
+     *      query?: String|Object,
      *      cancelable?: Boolean,
      *      download?: String
      * }} config?
@@ -292,6 +292,14 @@ export class HttpConnector {
     */
     request(url, config, cancelable = false) {
         let cacheId, cacheTm, result, cache
+        let query = !config.query 
+            ? null
+            : typeof(config.query) == 'string'
+                ? config.query
+                : Object.keys(config.query).reduce((str, key, i) => {
+                    str += `${i>0?'&':''}${key}=${config.query[key]}`
+                    return str
+                }, '')
 
         const responseFn = (data) => {
             let r
@@ -358,7 +366,7 @@ export class HttpConnector {
         cache = this._cache || config.cache
         this._onRequest && this._onRequest(config)
 
-        if (config.query) {
+        if (query) {
             url = `${url}${(url.split('?').length == 1 ? '?' : '&')}${config.query}`
             delete (config.query)
         }
