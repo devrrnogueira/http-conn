@@ -3,6 +3,15 @@
 const caches = {}
 
 /**
+ * @typedef CancelablePromise
+ * @property {Function} [cancel] available only when parameter cancelable=true
+ * @property {Promise<any>} [request] available only when parameter cancelable=true
+ * @property {(data:any) => Promise} [then] available only when parameter cancelable=false
+ * @property {(data:any) => Promise} [catch] available only when parameter cancelable=false
+ * @property {(data:any) => Promise} [finally] available only when parameter cancelable=false
+ */
+
+/**
  * @param {String} url
  * @param {{
  *      method?: ('GET'|'POST'|'PUT'|'DELETE'|'OPTIONS'|'PATH'|'HEAD'),
@@ -20,7 +29,7 @@ function send(url, {
     mode = 'cors',
     timeout = null
 }) {
-    let tm, promise
+    let tm, promise, options
     let isTimeout = false
     let isCanceled = false
     let controller = new AbortController()
@@ -35,7 +44,7 @@ function send(url, {
     if ('GET HEAD'.includes(method)) {
         body = null
     }
-    
+
     if (method == 'POST' && contentType.includes('form')) {
         body = stringform(body)
     }
@@ -47,34 +56,43 @@ function send(url, {
         }, timeout)
     }
 
-    promise = fetch(url, {
+    options = {
         method,
         headers,
         body,
         mode,
         signal: controller.signal
-    })
-    .catch(err => {
-        if (isTimeout) {
-            err = new Error(`Timeout error. [${timeout}ms]`)
-            err.code = 1408
-        } else if (isCanceled) {
-            err = new Error(`Request canceled.`)
-            err.code = 1409
-        }
+    }
 
-        return err    
-    })
-    .finally(() => {
-        clearTimeout(tm)
-    })
+    promise = fetch(url, options)
+        .then(async res => {
+            if (!res.ok) {
+                throw new RequestError(res.status, res.statusText)
+            }
+
+            return res
+        })
+        .catch(err => {
+            if (isTimeout) {
+                err = new Error(`Timeout error. [${timeout}ms]`)
+                err.code = 1408
+            } else if (isCanceled) {
+                err = new Error(`Request canceled.`)
+                err.code = 1409
+            }
+
+            throw err
+        })
+        .finally(() => {
+            clearTimeout(tm)
+        })
 
     function cancel() {
         isCanceled = true
         controller.abort()
     }
 
-    return {promise, cancel}
+    return { promise, cancel }
 }
 
 function stringform(data) {
@@ -106,6 +124,22 @@ function hash(str) {
     return hash
 }
 
+class RequestError extends Error {
+    constructor(status, statusText) {
+        super(statusText)
+    
+        // Maintains proper stack trace for where our error was thrown (only available on V8)
+        if (Error['captureStackTrace']) {
+            Error['captureStackTrace'](this, RequestError)
+        }
+    
+        this.name = 'RequestError'
+        this.code = 0,
+        this.status = status
+        this.statusText = statusText
+    }
+}
+
 export class HttpConnector {
     /**
      * @param {{
@@ -124,7 +158,7 @@ export class HttpConnector {
             defaultTimeout = null,
             defaultHeaders = null
         } = options
-        
+
         this._cache = null
         this._onRequest = onRequest
         this._onResponse = onResponse
@@ -145,7 +179,7 @@ export class HttpConnector {
      * @param {Boolean} cancelable?
     */
     get(url, options = null, cancelable = false) {
-        return this.request(url, {...options, method: 'GET'}, cancelable)
+        return this.request(url, { ...options, method: 'GET' }, cancelable)
     }
 
     /**
@@ -161,7 +195,7 @@ export class HttpConnector {
      * @param {Boolean} cancelable?
     */
     post(url, data, options = null, cancelable = false) {
-        return this.request(url, {...options, method: 'POST', body:data}, cancelable)
+        return this.request(url, { ...options, method: 'POST', body: data }, cancelable)
     }
 
     /**
@@ -177,7 +211,7 @@ export class HttpConnector {
      * @param {Boolean} cancelable?
     */
     put(url, data, options = null, cancelable = false) {
-        return this.request(url, {...options, method: 'PUT', body:data}, cancelable)
+        return this.request(url, { ...options, method: 'PUT', body: data }, cancelable)
     }
 
     /**
@@ -192,7 +226,7 @@ export class HttpConnector {
      * @param {Boolean} cancelable?
     */
     delete(url, options = null, cancelable = false) {
-        return this.request(url, {...options, method: 'DELETE'}, cancelable)
+        return this.request(url, { ...options, method: 'DELETE' }, cancelable)
     }
 
     /**
@@ -207,7 +241,7 @@ export class HttpConnector {
      * @param {Boolean} cancelable?
     */
     options(url, options = null, cancelable = false) {
-        return this.request(url, {...options, method: 'OPTIONS'}, cancelable)
+        return this.request(url, { ...options, method: 'OPTIONS' }, cancelable)
     }
 
     /**
@@ -222,7 +256,7 @@ export class HttpConnector {
      * @param {Boolean} cancelable?
     */
     path(url, options = null, cancelable = false) {
-        return this.request(url, {...options, method: 'PATH'}, cancelable)
+        return this.request(url, { ...options, method: 'PATH' }, cancelable)
     }
 
     /**
@@ -237,7 +271,7 @@ export class HttpConnector {
      * @param {Boolean} cancelable?
     */
     head(url, options = null, cancelable = false) {
-        return this.request(url, {...options, method: 'HEAD'}, cancelable)
+        return this.request(url, { ...options, method: 'HEAD' }, cancelable)
     }
 
     /**
@@ -254,27 +288,28 @@ export class HttpConnector {
      *      download?: String
      * }} config?
      * @param {Boolean} cancelable?
+     * @returns {CancelablePromise}
     */
     request(url, config, cancelable = false) {
         let cacheId, cacheTm, result, cache
-        
+
         const responseFn = (data) => {
             let r
 
             if (this._onResponse) {
                 r = this._onResponse(data)
-                
+
                 if (r != undefined) {
                     data = r
                 }
             }
-            
+
             return data
         }
 
         const thenFn = async (res) => {
             let a, data, body
-                
+
             if (!res.ok) {
                 throw new Error(res)
             }
@@ -287,7 +322,7 @@ export class HttpConnector {
                 a.setAttribute("download", String(config.download))
                 a.click()
                 a.parentElement.removeChild(a)
-                return responseFn({download: true})
+                return responseFn({ download: true })
             }
 
             body = await res.json()
@@ -305,13 +340,13 @@ export class HttpConnector {
                     data
                 }
             }
-            
+
             return responseFn(data)
         }
 
         const catchFn = (error) => {
             this._onError && this._onError(error)
-            throw new Error(error)
+            throw error
         }
 
         config = {
@@ -343,13 +378,13 @@ export class HttpConnector {
             }
         }
 
-        let {promise, cancel} = send(url, config)
+        let { promise, cancel } = send(url, config)
 
-        return cancelable 
-            ? { 
+        return cancelable
+            ? {
                 request: promise.then(thenFn).catch(catchFn),
                 cancel
-            } 
+            }
             : promise.then(thenFn).catch(catchFn)
     }
 }
