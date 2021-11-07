@@ -333,7 +333,13 @@ export class HttpConnector {
                 return responseFn({ download: true })
             }
 
-            body = await res.json()
+            try {
+                body = await res.text()
+                body = JSON.parse(body)
+            } catch (error) {
+                body = body || ''
+            }
+
             data = {
                 ok: res.ok,
                 status: res.status,
