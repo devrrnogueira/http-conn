@@ -45,7 +45,7 @@ function send(url, {
         body = null
     }
 
-    if (method == 'POST' && contentType.includes('form')) {
+    if ((method == 'POST' || method == 'PUT') && contentType.includes('form')) {
         body = stringform(body)
     }
 
