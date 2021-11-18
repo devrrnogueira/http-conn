@@ -1,7 +1,10 @@
 {
   "name": "http-conn",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "main": "dist/http-conn.js",
+  "repository": {
+    "url": "https://github.com/devrrnogueira/http-conn"
+  },
   "scripts": {
     "serve": "vue-cli-service serve",
     "build": "rm -rf dist/ && mkdir -p dist/ && cp src/lib/HttpConnector.js dist/http-conn.js",
