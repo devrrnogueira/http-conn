@@ -45,15 +45,19 @@ function send(url, {
         body = null
     }
 
-    if ((method == 'POST' || method == 'PUT') && contentType.includes('form')) {
-        body = stringform(body)
-    }
-
     if (timeout) {
         tm = setTimeout(() => {
             isTimeout = true
             cancel()
         }, timeout)
+    }
+
+    if (body) {
+        if ((method == 'POST' || method == 'PUT') && contentType.includes('form')) {
+            body = stringform(body)
+        } else {
+            body = JSON.stringify(body)
+        }
     }
 
     options = {
