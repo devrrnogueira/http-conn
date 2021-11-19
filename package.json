@@ -1,6 +1,6 @@
 {
   "name": "http-conn",
-  "version": "1.0.8",
+  "version": "1.0.9",
   "main": "dist/http-conn.js",
   "repository": {
     "url": "https://github.com/devrrnogueira/http-conn"

@@ -70,8 +70,17 @@ function send(url, {
 
     promise = fetch(url, options)
         .then(async res => {
+            let body
+
             if (!res.ok) {
-                throw new RequestError(res.status, res.statusText)
+                try {
+                    body = await res.text()
+                    body = JSON.parse(body)
+                } catch (error) {
+                    body = body || ''
+                }
+
+                throw new RequestError(res.status, res.statusText, body)
             }
 
             return res
@@ -129,7 +138,7 @@ function hash(str) {
 }
 
 class RequestError extends Error {
-    constructor(status, statusText) {
+    constructor(status, statusText, body) {
         super(statusText)
     
         // Maintains proper stack trace for where our error was thrown (only available on V8)
@@ -141,6 +150,7 @@ class RequestError extends Error {
         this.code = 0,
         this.status = status
         this.statusText = statusText
+        this.body = body
     }
 }
 
@@ -355,7 +365,10 @@ export class HttpConnector {
         }
 
         const catchFn = (error) => {
-            this._onError && this._onError(error)
+            if (this._onError) {
+                error = this._onError(error) || error
+            } 
+            
             throw error
         }
 
